@@ -5,13 +5,47 @@ import { useEffect, useRef, useState } from "react";
 type Msg = { role: "user" | "assistant"; content: string };
 
 const GREETING =
-  "Hi \u{1F44B} I'm your Global Media Plan assistant. Ask me to draft a plan, compare channels, or estimate reach and budget.";
+  "Hi, I'm your Global Media Plan assistant. Ask me to draft a plan, compare channels, or estimate reach and budget.";
 const SUGGESTIONS = ["Draft a launch media plan", "Compare channels", "Estimate budget split"];
 
-// very small, safe markdown: **bold**
-function fmt(s: string) {
-  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function inline(s: string) {
+  return s
+    .replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+?)`/g, "<code>$1</code>");
+}
+
+function renderMarkdown(md: string) {
+  const lines = escapeHtml(md).replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let list: "ul" | "ol" | null = null;
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) { closeList(); continue; }
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
+      closeList();
+      const lvl = m[1].length;
+      const tag = lvl <= 2 ? "h3" : lvl === 3 ? "h4" : "h5";
+      out.push(`<${tag}>${inline(m[2])}</${tag}>`);
+    } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+      if (list !== "ul") { closeList(); list = "ul"; out.push("<ul>"); }
+      out.push(`<li>${inline(m[1])}</li>`);
+    } else if ((m = line.match(/^\s*\d+\.\s+(.*)$/))) {
+      if (list !== "ol") { closeList(); list = "ol"; out.push("<ol>"); }
+      out.push(`<li>${inline(m[1])}</li>`);
+    } else {
+      closeList();
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  closeList();
+  return out.join("");
 }
 
 export default function Page() {
@@ -19,6 +53,7 @@ export default function Page() {
   const [showChips, setShowChips] = useState(true);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -28,7 +63,6 @@ export default function Page() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
-  // auto-grow textarea
   useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
@@ -36,8 +70,8 @@ export default function Page() {
     ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
   }, [input]);
 
-  async function submit() {
-    const text = input.trim();
+  async function submit(textOverride?: string) {
+    const text = (textOverride ?? input).trim();
     if (!text || busy) return;
 
     const nextHistory: Msg[] = [...messages, { role: "user", content: text }];
@@ -50,31 +84,20 @@ export default function Page() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          history: nextHistory.slice(0, -1), // history before this message
-        }),
+        body: JSON.stringify({ message: text, history: nextHistory.slice(0, -1) }),
       });
       const data = await res.json();
-      const reply = res.ok
-        ? data.reply
-        : `⚠️ ${data.error ?? "Request failed"}`;
+      const reply = res.ok ? data.reply : data.error ?? "Request failed";
       setMessages((m) => [...m, { role: "assistant", content: reply }]);
     } catch (err: any) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: `⚠️ Couldn't reach the assistant. ${err?.message ?? ""}` },
+        { role: "assistant", content: `Couldn't reach the assistant. ${err?.message ?? ""}` },
       ]);
     } finally {
       setBusy(false);
       taRef.current?.focus();
     }
-  }
-
-  function onChip(s: string) {
-    setInput(s);
-    // submit on next tick so state is set
-    setTimeout(() => submit(), 0);
   }
 
   function newChat() {
@@ -85,11 +108,13 @@ export default function Page() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${collapsed ? " collapsed" : ""}`}>
       <aside className="side">
         <div className="logo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/cogitx-logo.png" alt="CogitX" />
+          <button className="icon-btn side-toggle" type="button" onClick={() => setCollapsed(true)} aria-label="Collapse sidebar">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="9" y1="4" x2="9" y2="20" /></svg>
+          </button>
         </div>
         <button className="newchat" type="button" onClick={newChat}>
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg> New chat
@@ -105,6 +130,9 @@ export default function Page() {
 
       <div className="main">
         <div className="topbar">
+          <button className="icon-btn expand" type="button" onClick={() => setCollapsed(false)} aria-label="Open sidebar">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="9" y1="4" x2="9" y2="20" /></svg>
+          </button>
           <div>
             <h1>Global Media Plan</h1>
             <div className="sub">AI assistant</div>
@@ -116,7 +144,11 @@ export default function Page() {
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role === "assistant" ? "bot" : "user"}`}>
                 <div className="av" aria-hidden="true">{m.role === "assistant" ? "C" : "T"}</div>
-                <div className="bubble" dangerouslySetInnerHTML={{ __html: fmt(m.content) }} />
+                {m.role === "assistant" ? (
+                  <div className="bubble md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} />
+                ) : (
+                  <div className="bubble">{m.content}</div>
+                )}
               </div>
             ))}
 
@@ -132,7 +164,7 @@ export default function Page() {
             {showChips && !busy && (
               <div className="chips">
                 {SUGGESTIONS.map((s) => (
-                  <button key={s} className="chip" type="button" onClick={() => onChip(s)}>
+                  <button key={s} className="chip" type="button" onClick={() => submit(s)}>
                     {s}
                   </button>
                 ))}
@@ -142,10 +174,7 @@ export default function Page() {
         </div>
 
         <div className="composer-wrap">
-          <form
-            className="composer"
-            onSubmit={(e) => { e.preventDefault(); submit(); }}
-          >
+          <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(); }}>
             <textarea
               ref={taRef}
               rows={1}

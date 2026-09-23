@@ -1,5 +1,3 @@
-/* Single committed light theme — matches the CogitX platform
-   (white surfaces, near-black controls, green active accent). */
 :root {
   --bg:#f6f7f9; --surface:#ffffff; --ink:#1a1d21; --dim:#6b7280; --mut:#9aa2b1;
   --line:#e6e8ec; --line2:#eef0f3; --btn:#252b36; --btn-h:#323947; --green:#22c55e;
@@ -13,15 +11,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .app { display: flex; height: 100%; overflow: hidden; }
+.app.collapsed .side { display: none; }
 
-/* sidebar */
 .side {
   width: 224px; flex: 0 0 auto; background: var(--surface);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column; padding: 18px 14px;
 }
-.logo { display: flex; align-items: center; padding: 4px 6px 18px; }
+.logo { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px 18px; }
 .logo img { height: 26px; width: auto; max-width: 100%; display: block; }
+.icon-btn {
+  width: 32px; height: 32px; flex: none; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--dim);
+  transition: background .15s, color .15s;
+}
+.icon-btn:hover { background: #f1f2f4; color: var(--ink); }
+.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8;
+                stroke-linecap: round; stroke-linejoin: round; }
+.side-toggle { border: 0; background: transparent; }
+.side-toggle:hover { background: #f1f2f4; }
 .newchat {
   display: flex; align-items: center; gap: 9px; width: 100%; cursor: pointer;
   background: var(--btn); color: #fff; border: 0; border-radius: 11px;
@@ -42,21 +50,15 @@ body {
 .me .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
 .me .em { font-size: 11px; color: var(--mut); line-height: 1.2; }
 
-/* main */
 .main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .topbar {
   flex: 0 0 auto; background: var(--surface); border-bottom: 1px solid var(--line);
   padding: 15px 24px; display: flex; align-items: center; gap: 12px;
 }
+.expand { display: none; }
+.app.collapsed .expand { display: grid; }
 .topbar h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .topbar .sub { font-size: 12px; color: var(--mut); margin-top: 1px; }
-.status {
-  margin-left: auto; display: flex; align-items: center; gap: 7px; font-size: 12px;
-  color: var(--dim); border: 1px solid var(--line); padding: 6px 12px;
-  border-radius: 999px; white-space: nowrap;
-}
-.gdot { width: 7px; height: 7px; border-radius: 50%; background: var(--green);
-        box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
 
 .scroll { flex: 1 1 auto; overflow-y: auto; scroll-behavior: smooth; }
 .thread { max-width: 760px; margin: 0 auto; padding: 26px 20px 8px;
@@ -72,6 +74,19 @@ body {
 .msg.bot .bubble { background: var(--bot); border: 1px solid var(--line); border-top-left-radius: 5px; }
 .msg.user .bubble { background: var(--user); color: #fff; border-top-right-radius: 5px; }
 .bubble strong { font-weight: 600; }
+
+.bubble.md { white-space: normal; }
+.bubble.md > :first-child { margin-top: 0; }
+.bubble.md > :last-child { margin-bottom: 0; }
+.bubble.md p { margin: 0 0 8px; }
+.bubble.md h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
+.bubble.md h4 { font-size: 14px; font-weight: 600; margin: 12px 0 5px; }
+.bubble.md h5 { font-size: 13px; font-weight: 600; margin: 10px 0 5px; color: var(--dim); }
+.bubble.md ul, .bubble.md ol { margin: 4px 0 8px; padding-left: 20px; }
+.bubble.md li { margin: 3px 0; }
+.bubble.md li::marker { color: var(--mut); }
+.bubble.md code { background: #eef0f3; padding: 1px 5px; border-radius: 5px; font-size: 12.5px;
+                  font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 
 .typing { display: inline-flex; gap: 4px; padding: 3px 2px; }
 .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--mut);
@@ -106,11 +121,11 @@ body {
 .send:not(:disabled):active { transform: scale(.94); }
 .send svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 2.2;
             stroke-linecap: round; stroke-linejoin: round; }
-.disclaim { max-width: 760px; margin: 8px auto 0; font-size: 10.5px; color: var(--mut); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) { .typing i { animation: none; } .scroll { scroll-behavior: auto; } }
 @media (max-width: 640px) {
-  .side { display: none; }
+  .side { position: absolute; z-index: 20; height: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.15); }
+  .app.collapsed .side { display: none; }
   .thread { padding: 20px 16px 8px; }
   .msg { max-width: 92%; }
 }
