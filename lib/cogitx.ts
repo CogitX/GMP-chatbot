@@ -119,8 +119,17 @@ function toReplyText(raw: unknown): string {
   return String(raw);
 }
 
+
 export async function sendChat(message: string, history: Msg[]): Promise<string> {
-  const body: Record<string, unknown> = { text: message, message, history };
+  const body: Record<string, unknown> = {
+    text: message,
+    message,
+    history,
+    orchestration: {
+      threadId: "..."
+    }
+  };
   const data = await trigger(body);
   return toReplyText(extractContent(data));
 }
+
